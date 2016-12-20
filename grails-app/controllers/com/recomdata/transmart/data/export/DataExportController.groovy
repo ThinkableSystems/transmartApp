@@ -1,20 +1,28 @@
 package com.recomdata.transmart.data.export
 
+import com.recomdata.transmart.domain.i2b2.ExtData
 import grails.converters.JSON
 import org.transmartproject.core.exceptions.AccessDeniedException
 import org.transmartproject.core.exceptions.InvalidArgumentsException
+import org.transmartproject.core.ontology.Study
+import org.transmartproject.core.querytool.QueryDefinition
 import org.transmartproject.core.users.User
+import org.transmartproject.db.concept.ConceptKey
 
 import java.util.regex.Matcher
 import java.util.regex.Pattern
+
+import static org.transmartproject.core.users.ProtectedOperation.WellKnownOperations.EXPORT
 
 class DataExportController {
 
     def exportService
     def exportMetadataService
     def springSecurityService
-    User currentUserBean
-    def dataExportService
+    def queriesResourceAuthorizationDecorator
+    def studiesResourceService
+    def currentUserBean
+    def queryDefinitionXmlService
 
     private static final String ROLE_ADMIN = 'ROLE_ADMIN'
 
@@ -22,12 +30,102 @@ class DataExportController {
 
     //We need to gather a JSON Object to represent the different data types.
     def getMetaData() {
-        List<Long> resultInstanceIds = parseResultInstanceIds()
-        checkRightsToExport(resultInstanceIds)
+        checkParamResultInstanceIds()
+        // get information for base select checkboxes
+        Map result = exportMetadataService.getMetaData(
+                params.long("result_instance_id1"),
+                params.long("result_instance_id2"))
 
-        render exportMetadataService.getMetaData(
-                resultInstanceIds[0],
-                resultInstanceIds[1]) as JSON
+        // add data for checkboxes with external data
+        // function to creation data for checkboxes
+        Closure<Map> generateExternalDataRecord = { String dataTypeId, String dataTypeName,
+                                                    boolean inSubset1, boolean inSubset2 ->
+            Map res = [
+                    "subsetId1"        : "subset1",
+                    "subsetId2"        : "subset2",
+                    "subsetName1"      : "Subset 1",
+                    "subsetName2"      : "Subset 2",
+                    "dataTypeId"       : dataTypeId,
+                    "dataTypeName"     : dataTypeName,
+                    "subset1"          : [
+                            "dataTypeHasCounts": false,
+                            "exporters"        : [
+                                    ["format"     : "ExtFiles",
+                                     "description": "External files"]],
+                    ],
+                    "subset2"          : [
+                            "dataTypeHasCounts": false,
+                            "exporters"        : [
+                                    ["format"     : "ExtFiles",
+                                     "description": "External files"]],
+                    ]
+            ]
+            if (!inSubset1) {
+                res["subset1"]["patientsNumber"] = 0
+            }
+            if (!inSubset2) {
+                res["subset2"]["patientsNumber"] = 0
+            }
+            return res
+        }
+        // parse raw data of the query to get data which attached external
+        Map<String, QueryDefinition> queryDefinitions = [
+                "subset1": queryDefinitionXmlService.fromXml(new StringReader(params.crc_query_1)),
+                "subset2": queryDefinitionXmlService.fromXml(new StringReader(params.crc_query_2))
+        ]
+        // fetch information about external files in the queries
+        Map externalFiles = [:]
+        Closure conceptKeyToSqlLikeCondition = { key -> key.substring(key.indexOf("\\", 2)).replace("\\", "\\\\") + "%"}
+        queryDefinitions.each { subset, queryDefinition ->
+            if (queryDefinition.panels.size() > 0) {
+                List<ExtData> results = ExtData.createCriteria().list {
+                    and {
+                        for (def panel : queryDefinition.panels) {
+                            if (!panel.invert) {
+                                or {
+                                    for (def item : panel.items) {
+                                        like("pathNode", conceptKeyToSqlLikeCondition(item.conceptKey))
+                                    }
+                                }
+                            } else {
+                                not {
+                                    or {
+                                        for (def item : panel.items) {
+                                            like("pathNode", conceptKeyToSqlLikeCondition(item.conceptKey))
+                                        }
+                                    }
+                                }
+                            }
+
+                        }
+                    }
+                }
+                for (ExtData extData : results) {
+                    if (!(extData.id in externalFiles)) {
+                        def studyPath = new ConceptKey(extData.studyConceptKey).conceptFullName.toString()
+                        externalFiles[extData.id] = [
+                                "dataTypeId"  : "extFile-${extData.id}",
+                                "dataTypeName": "External ${extData.dataType.name} \"${extData.name}\" (${studyPath})",
+                                "subset1"     : false,
+                                "subset2"     : false
+                        ]
+                    }
+                    externalFiles[extData.id][subset] = true
+                }
+            }
+        }
+        // add information about external data to checkboxes
+        for (Map externalFile : externalFiles.values().sort { a, b -> a["dataTypeName"].compareToIgnoreCase(b["dataTypeName"]) }) {
+
+            result["exportMetaData"].add(generateExternalDataRecord(
+                    externalFile["dataTypeId"],
+                    externalFile["dataTypeName"],
+                    externalFile["subset1"],
+                    externalFile["subset2"]
+            ))
+        }
+
+        render result as JSON
     }
 
     def downloadFileExists() {
@@ -76,41 +174,23 @@ class DataExportController {
      * Method that will run a data export and is called asynchronously from the datasetexplorer -> Data Export tab
      */
     def runDataExport() {
-        checkRightsToExport(parseResultInstanceIds())
+        checkParamResultInstanceIds()
 
-        def jsonResult = exportService.exportData(params, currentUserBean.username)
+        def jsonResult = exportService.exportData(params, springSecurityService.getPrincipal().username)
 
         response.setContentType("text/json")
         response.outputStream << jsonResult.toString()
     }
 
-    def isCurrentUserAllowedToExport() {
-        boolean isAllowed = dataExportService
-                .isUserAllowedToExport(currentUserBean, parseResultInstanceIds())
-        render([result: isAllowed] as JSON)
-    }
+    private void checkParamResultInstanceIds() {
+        def resultInstanceId1 = params.long("result_instance_id1")
+        def resultInstanceId2 = params.long("result_instance_id2")
 
-    private List<Long> parseResultInstanceIds() {
-        List<Long> result = []
-        int subsetNumber = 1
-        while (params.containsKey('result_instance_id' + subsetNumber)) {
-            result << params.long('result_instance_id' + subsetNumber)
-            subsetNumber += 1
-        }
-        result
-    }
-
-    private void checkRightsToExport(List<Long> resultInstanceIds) {
-        if (!resultInstanceIds) {
+        if (!resultInstanceId1 && !resultInstanceId2) {
             throw new InvalidArgumentsException("No result instance id provided")
         }
 
-        if (!dataExportService
-                .isUserAllowedToExport(currentUserBean,
-                    resultInstanceIds)) {
-            throw new AccessDeniedException("User ${currentUserBean.username} has no EXPORT permission" +
-                    " on one of the result sets: ${resultInstanceIds}")
-        }
+        checkResultInstanceIds resultInstanceId1, resultInstanceId2
     }
 
     private checkJobAccess(String jobName) {
@@ -127,6 +207,27 @@ class DataExportController {
                     "that of the current user")
             throw new AccessDeniedException("Job $jobName was not started by " +
                     "this user")
+        }
+    }
+
+    private void checkResultInstanceIds(... rids) {
+        // check that the user has export access in the studies of patients
+        Set<Study> studies = (rids as List).
+                findAll().collect {
+            queriesResourceAuthorizationDecorator.getQueryResultFromId it
+        }*.
+                patients.
+                inject { a, b -> a + b }. // merge two patient sets into one
+                inject([] as Set, { a, b -> a + b.trial }).
+                collect { studiesResourceService.getStudyById it }
+
+        studies.each { study ->
+            assert currentUserBean instanceof User
+            if (!currentUserBean.canPerform(EXPORT, study)) {
+                throw new AccessDeniedException("User " +
+                        "$currentUserBean.username has no EXPORT permission on " +
+                        "study $study.id")
+            }
         }
     }
 
@@ -149,5 +250,3 @@ class DataExportController {
         matcher.group(1)
     }
 }
-
-
