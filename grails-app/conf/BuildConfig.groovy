@@ -154,8 +154,8 @@ grails.project.dependency.resolution = {
             // -- Genome Browser plugin --
             //   to inclue the plugin, uncomment the following two lines
             //   and see related comment block above 
-            // runtime ':dalliance-plugin:unknown'
-            // runtime ':transmart-mydas:unknown'
+            runtime ':dalliance-plugin:unknown'
+            runtime ':transmart-mydas:unknown'
             runtime ':transmart-rest-api:16.1'
             runtime ':blend4j-plugin:16.1'
             runtime ':transmart-metacore-plugin:16.1'
