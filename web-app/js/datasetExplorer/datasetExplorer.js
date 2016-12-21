@@ -2096,8 +2096,9 @@ function runAllQueries(callback, panel) {
         Ext.Msg.alert('Subsets are empty', 'All subsets are empty. Please select subsets.');
         return;
     }
-
-    panel.body.unmask();
+    if (panel){
+        panel.body.unmask();
+    }
     for (var i = 1; i <= GLOBAL.NumOfSubsets; i++) {
         if (isSubsetOnlyExclude(i)) {
             if (panel) {
