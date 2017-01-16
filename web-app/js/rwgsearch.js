@@ -87,14 +87,16 @@ function addSearchAutoComplete()	{
 		source: sourceURL,
 		minLength:1,
 		select: function(event, ui) {  
+		    if (ui.item != null && ui.item != "") {
 			searchParam={id:ui.item.id,display:ui.item.category,keyword:ui.item.label,category:ui.item.categoryId};
 			addSearchTerm(searchParam);
+		    }
 			
 			//If category is ALL, add this as free text as well
 			var category = jQuery("#search-categories").val();
-			return false;
+		    return false;
 		}
-	}).data("autocomplete")._renderItem = function( ul, item ) {
+	}).data("ui-autocomplete")._renderItem = function( ul, item ) {
 		var resulta = '<a><span class="category-' + item.category.toLowerCase() + '">' + item.category + '&gt;</span>&nbsp;<b>' + item.label + '</b>&nbsp;';
 		if (item.synonyms != null) {
 			resulta += (item.synonyms + '</a>');
@@ -894,7 +896,63 @@ jQuery(document).ready(function() {
 	  
 	jQuery('body').on('click', '#closeupload', function() {
 	      jQuery('#uploadFilesOverlay').fadeOut();  
-	}); 
+	});
+
+	jQuery('#metadata-viewer').on('click', '.deletestudy', function () {
+
+		var id = jQuery(this).attr('name');
+		var parent = jQuery('#parentId').val();
+		if (confirm("Are you sure you want to delete this study?")) {
+			findChildByParent(id, function (hasChildren) {
+				if (hasChildren) {
+					if (!confirm("This study contain beneath some elements it. Are you sure?")) {
+						return;
+					}
+				}
+				jQuery.ajax({
+					url: deleteStudyURL,
+					data: {id: id},
+					success: function (response) {
+						updateFolder(parent);
+						showDetailDialog(parent);
+						jQuery('.result-folder-name').removeClass('selected');
+						jQuery('#result-folder-name-' + parent).addClass('selected');
+					},
+					error: function (xhr) {
+						alert(xhr.message);
+					}
+				});
+			})
+
+		}
+	});
+
+	jQuery('#metadata-viewer').on('click', '.deleteprogram', function () {
+
+		var id = jQuery(this).attr('name');
+		if (confirm("Are you sure you want to delete this program?")) {
+			findChildByParent(id, function (hasChildren) {
+				if (hasChildren) {
+					if (!confirm("This program contain beneath some elements it. Are you sure?")) {
+						return;
+					}
+				}
+				jQuery.ajax({
+					url: deleteProgramURL,
+					data: {id: id},
+					success: function (response) {
+						showSearchResults();
+						goWelcome();
+					},
+					error: function (xhr) {
+						alert(xhr.message);
+					}
+				});
+			})
+
+		}
+	});
+
 	jQuery('#metadata-viewer').on('click', '.addstudy', function() {
 
     	var id = jQuery(this).attr('name');
@@ -967,7 +1025,7 @@ jQuery(document).ready(function() {
 			ids.push(jQuery(checkboxes[i]).attr('name'));
 		}
 
-		if (ids.size() == 0) {return false;}
+		if (ids.length == 0) {return false;}
 
 		window.location = exportURL + "?id=" + ids.join(',');
 		   
@@ -977,7 +1035,7 @@ jQuery(document).ready(function() {
 			url:exportRemoveURL,
 			data: {id: ids.join(',')},			
 			success: function(response) {
-				for(j=0; j<ids.size(); j++){
+				for(j=0; j<ids.length; j++){
 					jQuery(checkboxes[j]).closest("tr").remove();
 					jQuery('#cartcount').show().text(response);
 					updateExportCount();
@@ -1115,7 +1173,7 @@ function loadSearchFromSession() {
 	
 	for (var i = 0; i < sessionFilters.length; i++) {
 		var item = sessionFilters[i];
-		if (item != null && item != "") {
+		if (item != undefined && item != "") {
 			var itemData = item.split("|");
 			var itemSearchData = itemData[1].split(";");
 			var searchParam = {id: itemSearchData[2], display: itemData[0], category: itemSearchData[0], keyword: itemSearchData[1]};
@@ -1318,4 +1376,16 @@ function createUploader() {
 
 function setUploderEndPoint(id) {
 	uploader.setEndpoint(uploadActionURL+'?parentId='+id);
+}
+
+function findChildByParent(parent, callFunc){
+	var hasChildred = true
+	jQuery.ajax({
+		url: hasChildrenURL,
+		data: {id: parent},
+		success: function(response) {
+			hasChildred = response.result
+			callFunc(hasChildred);
+		}
+	});
 }

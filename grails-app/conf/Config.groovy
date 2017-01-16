@@ -1,6 +1,5 @@
 import grails.util.Environment
 
-
 def console
 if (!Environment.isWarDeployed() && Environment.isWithinShell()) {
     console = grails.build.logging.GrailsConsole.instance
@@ -90,6 +89,7 @@ grails.mime.types = [html         : [
                      jnlp         : 'application/x-java-jnlp-file'
 ]
 // The default codec used to encode data with ${}
+grails.views.javascript.library="jquery"
 grails.views.default.codec = "none" // none, html, base64
 grails.views.gsp.encoding = "UTF-8"
 grails.converters.encoding = "UTF-8"
@@ -188,6 +188,8 @@ com.recomdata.skipdisclaimer = true
 grails.spring.bean.packages = []
 
 org.transmart.security.spnegoEnabled = false
+org.transmart.security.sniValidation = true
+org.transmart.security.sslValidation = true
 
 // requires NIO connector though. If you use apache in front of tomcat in the
 // same server, you can set this to false and set .apache = true
@@ -202,6 +204,38 @@ bruteForceLoginLock {
 }
 
 log4j = {
+    /**
+     * Configuration for writing audit metrics.
+     * This needs to be placed in the out-of-tree Config.groovy, as the log4j config there will override this.
+     * (and don't forget to 'import org.apache.log4j.DailyRollingFileAppender',
+     * 'import org.transmart.logging.ChildProcessAppender' and 'import org.transmart.logging.JsonLayout'.)
+     */
+    /*
+    appenders {
+        // default log directory is either the tomcat root directory or the
+        // current working directory.
+        def catalinaBase = System.getProperty('catalina.base') ?: '.'
+        def logDirectory = "${catalinaBase}/logs".toString()
+
+        // Use layout: JsonLayout(conversionPattern: '%m%n', singleLine: true) to get each message as a single line
+        // json the same way as ChildProcessAppender sends it.
+        appender new DailyRollingFileAppender(
+            name: 'fileAuditLogger',
+            datePattern: "'.'yyyy-MM-dd",
+            fileName: "${logDirectory}/audit.log",
+            layout: JsonLayout(conversionPattern:'%d %m%n')
+        )
+        // the default layout is a JsonLayout(conversionPattern: '%m%n, singleLine: true)
+        appender new ChildProcessAppender(
+                name: 'processAuditLogger',
+                command: ['/usr/bin/your/command/here', 'arg1', 'arg2']
+        )
+    }
+    trace fileAuditLogger: 'org.transmart.audit'
+    trace processAuditLogger: 'org.transmart.audit'
+    trace stdout: 'org.transmart.audit'
+    */
+
     environments {
         test {
             warn 'org.codehaus.groovy.grails.commons.spring'
@@ -238,3 +272,4 @@ grails.plugin.springsecurity.oauthProvider.refreshTokenLookup.className = 'org.t
 grails.plugin.springsecurity.ldap.active = false
 org.transmart.security.ldap.mappedUsernameProperty = 'username'
 org.transmart.security.ldap.inheritPassword = true
+grails.plugin.springsecurity.kerberos.active = false
