@@ -1792,6 +1792,10 @@ function runAllQueries(callback, panel) {
         return;
     }
 
+    if (panel){
+        panel.body.unmask();
+    }
+
     for (var i = 1; i <= GLOBAL.NumOfSubsets; i++) {
         if (isSubsetOnlyExclude(i)) {
             if (panel) {

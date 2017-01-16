@@ -46,6 +46,13 @@ grails.project.dependency.resolution = {
             mavenCentral()
 
             mavenRepo "https://repo.transmartfoundation.org/content/repositories/public/"
+
+
+            // -- Genome Browser plugin --
+            //   to inclue the plugin, uncomment the following line
+            //   and see related comment block below 
+            mavenRepo "https://repo.thehyve.nl/content/repositories/public/"
+
         }
     } else {
         dm.configureRepositories delegate
@@ -148,16 +155,19 @@ grails.project.dependency.resolution = {
             //                       folder-management
             //compile ':biomart-domain:16.2-SNAPSHOT'
             //// already included in biomart-domain
-            //compile ':transmart-java:16.2-SNAPSHOT'
-            runtime ':dalliance-plugin:16.2-SNAPSHOT'
-            runtime ':transmart-mydas:16.2-SNAPSHOT'
-            runtime ':transmart-rest-api:16.2-SNAPSHOT'
-            runtime ':blend4j-plugin:16.2-SNAPSHOT'
-            runtime ':transmart-metacore-plugin:16.2-SNAPSHOT'
-            runtime ':transmart-xnat-importer:16.2-SNAPSHOT'
-            runtime ':xnat-viewer:16.2-SNAPSHOT'
 
-            test ':transmart-core-db-tests:16.2-SNAPSHOT'
+            //compile ':transmart-java:16.1'
+            // -- Genome Browser plugin --
+            //   to inclue the plugin, uncomment the following two lines
+            //   and see related comment block above 
+            runtime ':dalliance-plugin:0.2-SNAPSHOT'
+            runtime ':transmart-mydas:0.1-SNAPSHOT'
+            runtime ':transmart-rest-api:16.1'
+            runtime ':blend4j-plugin:16.1'
+            runtime ':transmart-metacore-plugin:16.1'
+
+            test ':transmart-core-db-tests:16.1'
+
         } else {
             dm.internalDependencies delegate
         }
