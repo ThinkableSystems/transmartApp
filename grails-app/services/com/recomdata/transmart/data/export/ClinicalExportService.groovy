@@ -193,12 +193,15 @@ class ClinicalExportService {
         return result;
     }
 
-    private Collection<ComposedVariable> createClinicalVariablesForStudies(Set<Study> queriedStudies) {
-        queriedStudies.collect { Study study ->
+    private List<Collection<ComposedVariable>> createClinicalVariablesForStudies(Set<Study> queriedStudies) {
+        List<Collection<ComposedVariable>> result = new ArrayList<Collection<ComposedVariable>>();
+        Collection<ComposedVariable> composedVariableCollection = queriedStudies.collect { Study study ->
             clinicalDataResourceService.createClinicalVariable(
                     NORMALIZED_LEAFS_VARIABLE,
                     concept_path: study.ontologyTerm.fullName)
         }
+        result.add(composedVariableCollection);
+        return result;
     }
 
     private Set<Study> getQueriedStudies(QueryResult queryResult) {
