@@ -31,6 +31,28 @@ class ClinicalExportService {
 
     def jobResultsService
 
+    List<List<ComposedVariable>> splitOverSizedCompVarList(List<ComposedVariable> overSizedCompVarList){
+        List<List<ComposedVariable>> result = new ArrayList<List<ComposedVariable>>();
+        if (overSizedCompVarList.size() < 65535) {
+            result.addAll(overSizedCompVarList);
+            return result;
+        }
+        else {
+            List<ComposedVariable> partialCompVarList = new ArrayList<ComposedVariable>();
+            List<ComposedVariable> theRestCompVarList = new ArrayList<ComposedVariable>();
+            for (int i=0; i<overSizedCompVarList.size(); i++){
+                if (i<65535){
+                    partialCompVarList.add(overSizedCompVarList.get(i));
+                }
+                else {
+                    theRestCompVarList.add(overSizedCompVarList.get(i));
+                }
+            }
+            result.addAll(partialCompVarList);
+            return result.addAll(splitOverSizedCompVarList(theRestCompVarList));
+        }
+    }
+
     List<File> exportClinicalData(Map args) {
         String jobName = args.jobName
         if (jobResultsService.isJobCancelled(jobName)) {
@@ -52,8 +74,11 @@ class ClinicalExportService {
         }
 
         def files = []
-
-        files << exportClinicalDataToFile(queryResult, variables, studyDir, jobName)
+        List<List<ComposedVariable>> splitComposedVariables = splitOverSizedCompVarList(variables);
+        System.out.println ("Variables were split into " + splitComposedVariables.size() + " parts");
+        for (int i=0; i<splitComposedVariables.size(); i++){
+            files << exportClinicalDataToFile(queryResult, splitComposedVariables.get(i), studyDir, jobName,  "data_clinical_"+i+".tsv");
+        }
         if (exportMetaData) {
             def terms = getRelatedOntologyTerms(variables)
             def tagsFile = exportAllTags(terms, studyDir)
@@ -68,7 +93,8 @@ class ClinicalExportService {
     private File exportClinicalDataToFile(QueryResult queryResult,
                                           List<ComposedVariable> variables,
                                           File studyDir,
-                                          String jobName) {
+                                          String jobName,
+                                          String outputFileName) {
 
         TabularResult<ClinicalVariableColumn, PatientRow> tabularResult =
                 clinicalDataResourceService.retrieveData(queryResult, variables)
@@ -83,10 +109,11 @@ class ClinicalExportService {
     private File writeToFile(TabularResult<ClinicalVariableColumn, PatientRow> tabularResult,
                              List<ComposedVariable> variables,
                              File studyDir,
-                             String jobName) {
+                             String jobName,
+                             String outputFileName) {
         PeekingIterator peekingIterator = Iterators.peekingIterator(tabularResult.iterator())
 
-        File clinicalDataFile = new File(studyDir, DATA_FILE_NAME)
+        File clinicalDataFile = new File(studyDir, outputFileName)
         clinicalDataFile.withWriter { Writer writer ->
             CSVWriter csvWriter = new CSVWriter(writer, COLUMN_SEPARATOR)
 
