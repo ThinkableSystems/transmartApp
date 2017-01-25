@@ -177,6 +177,36 @@ class ClinicalExportService {
         }
     }
 
+    private List<Set<Study>> splitOverSizedStudySet(Set<Study> overSizedStudySet){
+        List<Set<Study>> result = new ArrayList<Set<Study>>();
+        
+        if (overSizedStudySet.size() < 65535){
+            System.out.println("Undersized StudySet with size " + overSizedStudySet.size());
+            result.add(overSizedStudySet);
+            return result;
+        }
+        else {
+            System.out.println("Oversized StudySet with size " + overSizedStudySet.size());
+            Set<Study> partialStudySet = new HashSet<Study>();
+            Set<Study> restOfStudySet = new HashSet<Study>();
+            Iterator<Study> overSizedStudySetIterator = overSizedStudySet.iterator();
+            int currentOverSizedStudySetIndex = 0;
+            while (overSizedStudySetIterator.hasNext()){
+                Study currentStudy = overSizedStudySetIterator.next();
+                if (currentOverSizedStudySetIndex < 65535){
+                    partialStudySet.add(currentStudy);
+                }
+                else {
+                    restOfStudySet.add(currentStudy);
+                }
+                currentOverSizedStudySetIndex++;
+            }
+            result.add(partialConceptKeyCollection);
+            return result.addAll(splitOverSizedStudySet(restOfStudySet));
+        }
+
+    }
+
     private List<Collection<ComposedVariable>> createClinicalVariablesForConceptKeys(Collection<String> conceptKeys) {
         List<Collection<String>> splitConceptKeys = splitOverSizedConceptKeyCollection(conceptKeys);
         System.out.println("The conceptKeys were broken up into " + splitConceptKeys.size() + "parts");
@@ -194,13 +224,17 @@ class ClinicalExportService {
     }
 
     private List<Collection<ComposedVariable>> createClinicalVariablesForStudies(Set<Study> queriedStudies) {
+        List<Set<Study>> splitStudies = splitOverSizedStudySet(queriedStudies);
+        System.out.println("The studies were broken up into " + splitStudies.size() + "parts");
         List<Collection<ComposedVariable>> result = new ArrayList<Collection<ComposedVariable>>();
-        Collection<ComposedVariable> composedVariableCollection = queriedStudies.collect { Study study ->
-            clinicalDataResourceService.createClinicalVariable(
+        for (int i=0; i < splitStudies.size(); i++){
+            Collection<ComposedVariable> composedVariableCollection = queriedStudies.collect { Study study ->
+                clinicalDataResourceService.createClinicalVariable(
                     NORMALIZED_LEAFS_VARIABLE,
                     concept_path: study.ontologyTerm.fullName)
+            }
+            result.add(composedVariableCollection);
         }
-        result.add(composedVariableCollection);
         return result;
     }
 
