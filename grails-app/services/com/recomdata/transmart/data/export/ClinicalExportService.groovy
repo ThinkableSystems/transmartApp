@@ -43,7 +43,7 @@ class ClinicalExportService {
         boolean exportMetaData = args.exportMetaData == null ? true : args.exportMetaData
 
         QueryResult queryResult = queriesResourceService.getQueryResultFromId(resultInstanceId)
-        List<ComposedVariable> variables
+        List<List<ComposedVariable>> variables
         if (conceptKeys) {
             variables = createClinicalVariablesForConceptKeys(conceptKeys)
         } else {
@@ -52,8 +52,9 @@ class ClinicalExportService {
         }
 
         def files = []
-
-        files << exportClinicalDataToFile(queryResult, variables, studyDir, jobName)
+        for (int i=0; i<variables.size(); i++){
+            files << exportClinicalDataToFile(queryResult, variables.get(i), studyDir, jobName, "data_clinical" + i + ".tsv")
+        }
         if (exportMetaData) {
             def terms = getRelatedOntologyTerms(variables)
             def tagsFile = exportAllTags(terms, studyDir)
@@ -68,13 +69,14 @@ class ClinicalExportService {
     private File exportClinicalDataToFile(QueryResult queryResult,
                                           List<ComposedVariable> variables,
                                           File studyDir,
-                                          String jobName) {
+                                          String jobName,
+                                          String outputFileName) {
 
         TabularResult<ClinicalVariableColumn, PatientRow> tabularResult =
                 clinicalDataResourceService.retrieveData(queryResult, variables)
 
         try {
-            return writeToFile(tabularResult, variables, studyDir, jobName)
+            return writeToFile(tabularResult, variables, studyDir, jobName, outputFileName)
         } finally {
             tabularResult.close()
         }
@@ -83,10 +85,11 @@ class ClinicalExportService {
     private File writeToFile(TabularResult<ClinicalVariableColumn, PatientRow> tabularResult,
                              List<ComposedVariable> variables,
                              File studyDir,
-                             String jobName) {
+                             String jobName,
+                             String outputFileName) {
         PeekingIterator peekingIterator = Iterators.peekingIterator(tabularResult.iterator())
 
-        File clinicalDataFile = new File(studyDir, DATA_FILE_NAME)
+        File clinicalDataFile = new File(studyDir, outputFileName)
         clinicalDataFile.withWriter { Writer writer ->
             CSVWriter csvWriter = new CSVWriter(writer, COLUMN_SEPARATOR)
 
@@ -141,13 +144,53 @@ class ClinicalExportService {
         } as Set
     }
 
-    private Collection<ComposedVariable> createClinicalVariablesForConceptKeys(Collection<String> conceptKeys) {
+    /*private Collection<ComposedVariable> createClinicalVariablesForConceptKeys(Collection<String> conceptKeys) {
         conceptKeys.collectAll {
             def conceptKey = new ConceptKey(it)
             clinicalDataResourceService.createClinicalVariable(
                     NORMALIZED_LEAFS_VARIABLE,
                     concept_path: conceptKey.conceptFullName.toString())
         }
+    }*/
+
+    private List<Collection<String>> splitOverSizedConceptKeyCollection(Collection<String> overSizedConceptKeyCollection){
+        List<Collection<String>> result = new ArrayList<Collection<String>>();
+        if (overSizedConceptKeyCollection.size() < 65535){
+            System.out.println ("Undersized ConceptKeyCollection with size " + overSizedConceptKeyCollection.size());
+            result.add(overSizedComVarCollection);
+            return result;
+        }
+        else {
+            System.out.println ("Oversized ConceptKeyCollection with size " + overSizedConceptKeyCollection.size());
+            Collection<String> partialConceptKeyCollection = new ArrayList<String>();
+            Collection<String> restOfConceptKeyCollection = new ArrayList<String>();
+            for (int i=0; i<overSizedConceptKeyCollection; i++){
+                if (i < 65535){
+                    partialConceptKeyCollection.add(overSizedConceptKeyCollection.get(i));
+                }
+                else {
+                    restOfConceptKeyCollection.add(overSizedConceptKeyCollection.get(i));
+                }
+            }
+            result.add(partialConceptKeyCollection);
+            return result.addAll(splitOverSizedConceptKeyCollection(restOfConceptKeyCollection));
+        }
+    }
+
+    private List<Collection<ComposedVariable>> createClinicalVariablesForConceptKeys(Collection<String> conceptKeys) {
+        List<Collection<String>> splitConceptKeys = splitOverSizedConceptKeyCollection(conceptKeys);
+        System.out.println("The conceptKeys were broken up into " + splitConceptKeys.size() + "parts");
+        List<Collection<ComposedVariable>> result = new ArrayList<Collection<ComposedVariable>>();
+        for (int i=0; i < splitConceptKeys.size(); i++){
+            Collection<ComposedVariable> composedVariableCollection = conceptKeys.collectAll {
+                def conceptKey = new ConceptKey(it)
+                clinicalDataResourceService.createClinicalVariable(
+                    NORMALIZED_LEAFS_VARIABLE,
+                    concept_path: conceptKey.conceptFullName.toString())
+            }
+            result.add(composedVariableCollection);
+        }
+        return result;
     }
 
     private Collection<ComposedVariable> createClinicalVariablesForStudies(Set<Study> queriedStudies) {
