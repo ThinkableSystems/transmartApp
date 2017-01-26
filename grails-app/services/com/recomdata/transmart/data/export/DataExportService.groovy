@@ -372,6 +372,62 @@ class DataExportService {
 
     }
 
+    def buildMapOfSampleCdsBySource(resultInstanceId) {
+        def map = [:]
+        def sampleCodesTable = new Sql(dataSource).rows("""
+            SELECT DISTINCT
+                p.SOURCESYSTEM_CD,
+                s.SAMPLE_CD
+            FROM
+                patient_dimension p
+            LEFT JOIN
+                observation_fact s on s.patient_num = p.patient_num
+            WHERE
+                p.PATIENT_NUM IN (
+                    SELECT
+                        DISTINCT patient_num
+                    FROM
+                        qt_patient_set_collection
+                    WHERE
+                        result_instance_id = ? )
+            ORDER BY SOURCESYSTEM_CD, SAMPLE_CD
+            """, resultInstanceId
+        )
+        for (row in sampleCodesTable) {
+            def sourceSystemCd = row.SOURCESYSTEM_CD
+            if (!sourceSystemCd) continue
+            def sampleCd = row.SAMPLE_CD
+            if (!sampleCd) continue
+            def entry = map[sourceSystemCd]
+            if (!entry) {
+                entry = sampleCd
+            } else {
+                entry = entry + "," + sampleCd
+            }
+            map[sourceSystemCd] = entry
+        }
+        return map
+    }
+
+    static clinicalDataFileName(String studyDir) {
+
+        String dataTypeName = 'Clinical'
+        String dataTypeFolder = null
+
+        String dataTypeNameDir = (StringUtils.isNotEmpty(dataTypeName) && null != studyDir) ?
+                studyDir + '/' + dataTypeName : null;
+        String dataTypeFolderDir = (StringUtils.isNotEmpty(dataTypeFolder) && null != dataTypeNameDir) ?
+                dataTypeNameDir + '/' + dataTypeFolder : null;
+
+        if (null != studyDir && null == dataTypeNameDir) {
+            studyDir
+        } else if (null != studyDir && null != dataTypeNameDir) {
+            ((null == dataTypeFolderDir) ? dataTypeNameDir : dataTypeFolderDir)
+        }
+
+
+    }
+    
     boolean isUserAllowedToExport(final User user, final List<Long> resultInstanceIds) {
         assert user
         assert resultInstanceIds
