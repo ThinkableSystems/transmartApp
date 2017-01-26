@@ -59,6 +59,7 @@ class DataExportService {
         }
 
         subsets.each { subset ->
+            def columnFilter = selection[subset]?.clinical?.selector
             def selectedFilesList = subsetSelectedFilesMap.get(subset) ?: []
 
             if (null != selectedFilesList && !selectedFilesList.isEmpty()) {
@@ -77,19 +78,23 @@ class DataExportService {
                 def pivotDataValueDef = jobDataMap.get("pivotData")
                 boolean pivotData = new Boolean(true)
                 if (pivotDataValueDef == false) pivotData = new Boolean(false)
+                boolean writeClinicalData = 'clinical' in selection[subset]
                 if (resultInstanceIdMap[subset]) {
                     // Construct a list of the URL objects we're running, submitted to the pool
                     selectedFilesList.each() { selectedFile ->
+                        if (StringUtils.equalsIgnoreCase(selectedFile, "CLINICAL")) {
+                            writeClinicalData = true
+                        }
                         def List gplIds = subsetSelectedPlatformsByFiles?.get(subset)?.get(selectedFile)
                         def retVal = null
                         switch (selectedFile) {
-                            case 'CLINICAL':
+                            /*case 'CLINICAL':
                                 clinicalExportService.exportClinicalData(jobName: jobDataMap.jobName,
                                         resultInstanceId: resultInstanceIdMap[subset],
                                         conceptKeys: selection[subset][selectedFile.toLowerCase()].selector,
                                         studyDir: studyDir
                                 )
-                                break
+                                break*/
                             case highDimensionResourceService.knownTypes:
                                 log.info "Exporting " + selectedFile + " using core api"
 
@@ -241,6 +246,121 @@ class DataExportService {
                                     prefix = "S2"
                                 vcfDataService.getDataAsFile(outputDir, jobDataMap.get("jobName"), null, resultInstanceIdMap[subset], selectedSNPs, selectedGenes, chromosomes, prefix);
                                 break;
+                        }
+                    }
+                }
+                if (writeClinicalData) {
+                    //Grab the item from the data map that tells us whether we need the concept contexts.
+                    Boolean includeConceptContext = jobDataMap.get("includeContexts", false);
+
+                    //This is a list of concept codes that we use to filter the result instance id results.
+                    String[] conceptCodeList = jobDataMap.get("concept_cds");
+
+                    //This is list of concept codes that are parents to some child concepts. We need to expand these out in the service call.
+                    List parentConceptCodeList = new ArrayList()
+
+                    if (jobDataMap.get("parentNodeList", null) != null) {
+                        //This variable tells us which variable actually holds the parent concept code.
+                        String conceptVariable = jobDataMap.get("parentNodeList")
+
+                        //Get the actual concept value from the map.
+                        parentConceptCodeList.add(jobDataMap.get(conceptVariable))
+                    } else {
+                        parentConceptCodeList = []
+                    }
+
+                    //Make this blank instead of null if we don't find it.
+                    if (conceptCodeList == null) conceptCodeList = []
+
+                    //Set the flag that tells us whether or not to exclude the high level concepts. Should this logic even be in the DAO?
+                    boolean filterHighLevelConcepts = false
+
+                    if (jobDataMap.get("analysis") == "DataExport") filterHighLevelConcepts = true
+                    def platformsList = subsetSelectedPlatformsByFiles?.get(subset)?.get("MRNA.TXT")
+                    //Reason for moving here: We'll get the map of SNP files from SnpDao to be output into Clinical file
+                    def retVal = clinicalDataService.getData(studyList, studyDir, "clinical.i2b2trans", jobDataMap.get("jobName"),
+                            resultInstanceIdMap[subset], conceptCodeList, selectedFilesList, pivotData, filterHighLevelConcepts,
+                            snpFilesMap, subset, filesDoneMap, platformsList, parentConceptCodeList as String[], includeConceptContext)
+
+                    if (jobDataMap.get("analysis") != "DataExport") {
+                        //if i2b2Dao was not able to find data for any of the studies associated with the result instance ids, throw an exception.
+                        if (!retVal) {
+                            throw new DataNotFoundException("There are no patients that meet the criteria selected therefore no clinical data was returned.")
+                        }
+                    }
+
+                    if (jobDataMap.analysis == 'DataExport') {
+
+                        def resultInstanceId = resultInstanceIdMap[subset]
+
+                        def mapOfSampleCdsBySource = buildMapOfSampleCdsBySource(resultInstanceId)
+
+                        def sampleCodesTable = new Sql(dataSource).rows("""
+                                        SELECT DISTINCT
+                                            p.SOURCESYSTEM_CD
+                                        FROM
+                                            patient_dimension p
+                                        WHERE
+                                            p.PATIENT_NUM IN (
+                                                SELECT
+                                                    DISTINCT patient_num
+                                                FROM
+                                                    qt_patient_set_collection
+                                                WHERE
+                                                    result_instance_id = ? )
+                                    """, resultInstanceId)
+                        for (row in sampleCodesTable) {
+                            row.SAMPLE_CDS = mapOfSampleCdsBySource[row.SOURCESYSTEM_CD]
+                        }
+                        sampleCodesTable = sampleCodesTable.collectEntries {
+                            [it.SOURCESYSTEM_CD.split(':')[-1].trim(), it.SAMPLE_CDS]
+                        }
+                        // add the header to the mapping table
+                        sampleCodesTable['PATIENT ID'] = 'SAMPLE CODES'
+                        // example: columnFilter = [/\Subjects\Ethnicity/, /\Endpoints\Diagnosis/]
+                        studyList.each { studyName ->
+                            String directory
+                            String fileWritten = "clinical_i2b2trans.txt"
+                            if (studyList.size() > 1) {
+                                // yes, the output of the previous stage has a " _" in the name, with a space in it.
+                                fileWritten = studyName + ' _' + fileWritten
+
+                            }
+                            directory = clinicalDataFileName(studyDir.path)
+
+                            def reader = new File(directory, fileWritten)
+                            def writer = new File(directory, "newclinical")
+                            def writerstream = writer.newOutputStream()
+
+                            def filter = null
+
+                            reader.eachLine {
+                                def line = Arrays.asList(it.split('\t'))
+                                if (filter == null) {
+                                    if (columnFilter) {
+                                        filter = []
+                                        for (String columnName : columnFilter) {
+                                            columnName = CharMatcher.is('\\' as char).trimTrailingFrom(columnName)
+                                            String parentColumnName = columnName.replaceFirst(/\\[^\\]+$/, '')
+                                            def index = line.findIndexOf() {
+                                                columnName.endsWith(it) ||
+                                                        parentColumnName.endsWith(it)
+                                            }
+                                            if (index >= 1 && !(index in filter)) filter.add(index)
+                                        }
+                                    } else {
+                                        filter = 1..(line.size() - 1)
+                                    }
+                                }
+                                def patientId = line[0].trim()
+                                def joined = ((line[[0]] + [sampleCodesTable[patientId]] + line[filter])
+                                        .join('\t') + '\n')
+                                writerstream.write(joined.getBytes())
+                            }
+
+                            writerstream.close()
+
+                            writer.renameTo(directory + '/' + fileWritten)
                         }
                     }
                 }
