@@ -17,6 +17,7 @@ class DataExportService {
 
     def i2b2ExportHelperService
     def grailsApplication
+    def clinicalDataService
     def snpDataService
     def geneExpressionDataService
     def ACGHDataService
