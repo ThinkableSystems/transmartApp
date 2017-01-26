@@ -62,6 +62,7 @@ class DataExportService {
 
         subsets.each { subset ->
             def columnFilter = selection[subset]?.clinical?.selector
+            def snpFilesMap = [:]
             def selectedFilesList = subsetSelectedFilesMap.get(subset) ?: []
 
             if (null != selectedFilesList && !selectedFilesList.isEmpty()) {
