@@ -406,7 +406,7 @@ Ext.onReady(function () {
             activate: function (p) {
                 if (isSubsetQueriesChanged(p.subsetQueries) || !Ext.get('analysisGridPanel')) {
                     runAllQueries(getSummaryGridData, p);
-                    activateTab();
+                    activateTabResults();
                     onWindowResize();
                 } else {
                     getSummaryGridData();
@@ -437,7 +437,7 @@ Ext.onReady(function () {
                 if (isSubsetQueriesChanged(p.subsetQueries) || !Ext.get('analysis_title')) {
                     p.body.mask("Loading...", 'x-mask-loading');
                     runAllQueries(getSummaryStatistics, p);
-                    activateTab();
+                    activateTabResults();
                     onWindowResize();
                 }
             },
@@ -532,7 +532,7 @@ Ext.onReady(function () {
                  * @private
                  */
                 var _activateAdvancedWorkflow = function () {
-                    activateTab();
+                    activateTabResults();
                     GLOBAL.Analysis="dataAssociation";
                     renderCohortSummary();
                     onWindowResize();
@@ -898,6 +898,24 @@ Ext.onReady(function () {
 
     // preload the setvalue dialog
     if (!this.setvaluewin) {
+        var applyChanges =  function() {
+            var mode = getSelected(document.getElementsByName("setValueMethod"))[0].value;
+            var highvalue = document.getElementById("setValueHighValue").value;
+            var lowvalue = document.getElementById("setValueLowValue").value;
+            var units = document.getElementById("setValueUnits").value;
+            var operator = document.getElementById("setValueOperator").value;
+            var highlowselect = document.getElementById("setValueHighLowSelect").value;
+
+            // make sure that there is a value set
+            if (mode === "numeric" && operator === "BETWEEN" && (highvalue === "" || lowvalue === "")) {
+                alert('You must specify a low and a high value.');
+            } else if (mode === "numeric" && lowvalue === "") {
+                alert('You must specify a value.');
+            } else {
+                setValueDialogComplete(mode, operator, highlowselect, highvalue, lowvalue, units);
+            }
+        };
+
         setvaluewin = new Ext.Window({
             id: 'setValueWindow',
             title: 'Set Value',
@@ -919,6 +937,7 @@ Ext.onReady(function () {
                 {
                     text: 'Show Histogram for subset',
                     handler: function () {
+                        applyChanges();
                         var subset;
                         if (selectedConcept.parentNode.id === "hiddenDragDiv") {
                             subset = getSubsetFromPanel(STATE.Target);
@@ -936,26 +955,12 @@ Ext.onReady(function () {
                 {
                     text: 'OK',
                     handler: function () {
-                       var mode = getSelected(document.getElementsByName("setValueMethod"))[0].value;
-                       var highvalue = document.getElementById("setValueHighValue").value;
-                       var lowvalue = document.getElementById("setValueLowValue").value;
-                       var units = document.getElementById("setValueUnits").value;
-                       var operator = document.getElementById("setValueOperator").value;
-                       var highlowselect = document.getElementById("setValueHighLowSelect").value;
-
-                       // make sure that there is a value set
-                       if (mode === "numeric" && operator === "BETWEEN" && (highvalue === "" || lowvalue === "")) {
-                           alert('You must specify a low and a high value.');
-                       } else if (mode === "numeric" && lowvalue === "") {
-                           alert('You must specify a value.');
-                       } else {
-                           setvaluewin.hide();
-                           setValueDialogComplete(mode, operator, highlowselect, highvalue, lowvalue, units);
-                       }
+                       applyChanges();
+                       setvaluewin.hide();
                     }
                 },
                 {
-                    text: 'Cancel',
+                    text: 'Close',
                     handler: function () {
                         setvaluewin.hide();
                     }
@@ -991,34 +996,51 @@ Ext.onReady(function () {
     );
 
     if (!this.omicsfilterwin) {
+        var omicsFilterWinButtons = [
+            {
+                text: 'No filter',
+                handler: function () {
+                    applyOmicsNoFilterDialog();
+                }
+            },
+            {
+                text: 'OK',
+                handler: function () {
+                    applyOmicsFilterDialog(true);
+                }
+            }
+            ,
+            {
+                text: 'Cancel',
+                handler: function () {
+                    applyOmicsFilterDialog(false);
+                }
+            }
+        ];
+
+        var tools = [];
+        if (GLOBAL.helpUrls && GLOBAL.helpUrls.hiDomePopUp) {
+            tools.push({
+                id: 'help',
+                qtip: 'Click for context sensitive help',
+                handler: function (event, toolEl, panel) {
+                    window.open(GLOBAL.helpUrls.hiDomePopUp, '_blank').focus();
+                }
+            });
+        }
         omicsfilterwin = new Ext.Window(
             {
                 id: 'omicsFilterWindow',
                 title: '',
                 layout: 'border',
-                width: 270,
                 height: 350,
                 closable: false,
                 plain: true,
                 modal: true,
                 border: false,
                 items: [omicsfilterpanel],
-                buttons: [
-                    {
-                        text: 'OK',
-                        handler: function () {
-                            applyOmicsFilterDialog(true);
-                        }
-                    }
-                    ,
-                    {
-                        text: 'Cancel',
-                        handler: function () {
-                            applyOmicsFilterDialog(false);
-                        }
-                    }
-                ],
-                tools: []
+                buttons: omicsFilterWinButtons,
+                tools: tools
             });
         omicsfilterwin.show();
         omicsfilterwin.hide();
@@ -1365,10 +1387,11 @@ function setupOntTree(id_in, title_in) {
             }
         }
     });
-    
+
     ontTree.on('beforecollapsenode', function (node, deep, anim) {
         Ext.Ajax.request({
-            url: removeNodeDseURL + "?node=" + node.id,
+            url: removeNodeDseURL,
+            params: { node: node.id },
             method: 'POST',
             success: function (result, request) {
             },
@@ -1392,7 +1415,8 @@ function setupOntTree(id_in, title_in) {
 
         if (expand) {
             Ext.Ajax.request({
-                url: addNodeDseURL + "?node=" + node.id,
+                url: addNodeDseURL,
+                params: { node: node.id },
                 method: 'POST',
                 success: function (result, request) {
                 },
@@ -2870,7 +2894,7 @@ function getExportButtonSecurityComplete(result) {
     }
 }
 
-function activateTab(tab) {
+function activateTabResults(tab) {
     resultsTabPanel.tools.help.dom.style.display = "none";
 }
 

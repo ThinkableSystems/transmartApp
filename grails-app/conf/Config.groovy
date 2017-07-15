@@ -273,3 +273,40 @@ grails.plugin.springsecurity.ldap.active = false
 org.transmart.security.ldap.mappedUsernameProperty = 'username'
 org.transmart.security.ldap.inheritPassword = true
 grails.plugin.springsecurity.kerberos.active = false
+
+/**
+ * Here you can set custom help pages for different pages.
+ * You could open these pages by clicking the blue question mark icon.
+ */
+/*
+org.transmartproject.helpUrls.geneSignatureList='http://www.example.com/'
+org.transmartproject.helpUrls.rsIdSignatureList='http://www.example.com/'
+org.transmartproject.helpUrls.search='http://www.example.com/'
+
+org.transmartproject.helpUrls.logisticRegression='http://www.example.com/'
+org.transmartproject.helpUrls.boxPlot='http://www.example.com/'
+org.transmartproject.helpUrls.correlationAnalysis='http://www.example.com/'
+org.transmartproject.helpUrls.hierarchicalClustering='http://www.example.com/'
+org.transmartproject.helpUrls.heatMap='http://www.example.com/'
+org.transmartproject.helpUrls.kMeansClustering='http://www.example.com/'
+org.transmartproject.helpUrls.lineGraph='http://www.example.com/'
+org.transmartproject.helpUrls.markerSelection='http://www.example.com/'
+org.transmartproject.helpUrls.pca='http://www.example.com/'
+org.transmartproject.helpUrls.scatterPlot='http://www.example.com/'
+org.transmartproject.helpUrls.survivalAnalysis='http://www.example.com/'
+org.transmartproject.helpUrls.tableWithFisher='http://www.example.com/'
+org.transmartproject.helpUrls.summaryStatistics='http://www.example.com/'
+
+org.transmartproject.helpUrls.hierarchicalClusteringMaxRows='http://www.example.com/'
+org.transmartproject.helpUrls.heatMapMaxRows='http://www.example.com/'
+org.transmartproject.helpUrls.kMeansClusteringMaxRows='http://www.example.com/'
+org.transmartproject.helpUrls.waterfall='http://www.example.com/'
+org.transmartproject.helpUrls.rnaSeqGroupTest='http://www.example.com/'
+org.transmartproject.helpUrls.aCGHGroupTest='http://www.example.com/'
+org.transmartproject.helpUrls.geneprint='http://www.example.com/'
+org.transmartproject.helpUrls.aCGHGFrequencyPlot='http://www.example.com/'
+org.transmartproject.helpUrls.aCGHGSurvivalAnalysis='http://www.example.com/'
+
+org.transmartproject.helpUrls.hiDomePopUp='http://www.example.com/'
+org.transmartproject.helpUrls.cohortSelection='http://www.example.com/'
+*/

@@ -58,7 +58,7 @@ grails.project.dependency.resolution = {
 
         runtime 'org.javassist:javassist:3.16.1-GA'
 
-        compile 'org.transmartproject:transmart-core-api:16.2-SNAPSHOT'
+        compile 'org.transmartproject:transmart-core-api:16.2'
 
         compile 'antlr:antlr:2.7.7'
         compile 'net.sf.opencsv:opencsv:2.3'
@@ -134,30 +134,31 @@ grails.project.dependency.resolution = {
         compile ":codenarc:0.21"
 
         if (!dm) {
-            runtime ':smart-r:1.1-STABLE-SNAPSHOT'
-            compile ':rdc-rmodules:16.2-SNAPSHOT'
-            runtime ':transmart-core:16.2-SNAPSHOT'
-            compile ':transmart-gwas:16.2-SNAPSHOT'
+            runtime ':smart-r:16.2-STABLE'
+            compile ':rdc-rmodules:16.2'
+            runtime ':transmart-core:16.2'
+            compile ':transmart-gwas:16.2'
+            compile ':transmart-gwas-plink:16.2'
             //// already included in transmart-gwas
-            //compile ':transmart-legacy-db:16.2-SNAPSHOT'
+            //compile ':transmart-legacy-db:16.2'
             //// already included in transmart-gwas
-            //compile ':folder-management:16.2-SNAPSHOT'
+            //compile ':folder-management:16.2'
             //// already included in transmart-gwas, folder-management
-            //compile ':search-domain:16.2-SNAPSHOT'
+            //compile ':search-domain:16.2'
             //// already included in search-domain, transmart-gwas,
             //                       folder-management
-            //compile ':biomart-domain:16.2-SNAPSHOT'
+            //compile ':biomart-domain:16.2'
             //// already included in biomart-domain
-            //compile ':transmart-java:16.2-SNAPSHOT'
-            runtime ':dalliance-plugin:16.2-SNAPSHOT'
-            runtime ':transmart-mydas:16.2-SNAPSHOT'
-            runtime ':transmart-rest-api:16.2-SNAPSHOT'
-            runtime ':blend4j-plugin:16.2-SNAPSHOT'
-            runtime ':transmart-metacore-plugin:16.2-SNAPSHOT'
-            runtime ':transmart-xnat-importer:16.2-SNAPSHOT'
-            runtime ':xnat-viewer:16.2-SNAPSHOT'
+            //compile ':transmart-java:16.2'
+            runtime ':dalliance-plugin:16.2'
+            runtime ':transmart-mydas:16.2'
+            runtime ':transmart-rest-api:16.2'
+            runtime ':blend4j-plugin:16.2'
+            runtime ':transmart-metacore-plugin:16.2'
+            runtime ':transmart-xnat-importer:16.2'
+            runtime ':xnat-viewer:16.2'
 
-            test ':transmart-core-db-tests:16.2-SNAPSHOT'
+            test ':transmart-core-db-tests:16.2'
         } else {
             dm.internalDependencies delegate
         }
@@ -172,6 +173,7 @@ dm?.with {
     configureInternalPlugin 'runtime', 'transmart-core'
     configureInternalPlugin 'test', 'transmart-core-db-tests'
     configureInternalPlugin 'compile', 'transmart-gwas'
+    configureInternalPlugin 'compile', 'transmart-gwas-plink'
     configureInternalPlugin 'compile', 'transmart-java'
     configureInternalPlugin 'compile', 'biomart-domain'
     configureInternalPlugin 'compile', 'search-domain'
