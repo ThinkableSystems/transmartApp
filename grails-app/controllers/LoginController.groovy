@@ -44,39 +44,15 @@ class LoginController {
     }
     def forceAuth = {
         session.invalidate();
-        render view: 'auth', model: [postUrl: request.contextPath + SpringSecurityUtils.securityConfig.apf.filterProcessesUrl]
+	redirect(url: "https://neuroshare.michaeljfox.org/")
+        //render view: 'auth', model: [postUrl: request.contextPath + SpringSecurityUtils.securityConfig.apf.filterProcessesUrl]
     }
 
     /**
      * Show the login page.
      */
     def auth = {
-        nocache response
-
-        def guestAutoLogin = grailsApplication.config.com.recomdata.guestAutoLogin;
-        boolean guestLoginEnabled = (guestAutoLogin == 'true' || guestAutoLogin.is(true))
-        log.info("enable guest login: " + guestLoginEnabled)
-        //log.info("request:"+request.getQueryString())
-        boolean forcedFormLogin = request.getQueryString() != null
-        log.info("User is forcing the form login? : " + forcedFormLogin)
-
-        // if enabled guest and not forced login
-        if (guestLoginEnabled && !forcedFormLogin) {
-            log.info("proceeding with auto guest login")
-            def guestuser = grailsApplication.config.com.recomdata.guestUserName;
-
-            try {
-                UserDetails ud = userDetailsService.loadUserByUsername(guestuser)
-                log.debug("We have found user: ${ud.username}")
-                springSecurityService.reauthenticate(ud.username)
-                redirect uri: SpringSecurityUtils.securityConfig.successHandler.defaultTargetUrl
-            }
-            catch (UsernameNotFoundException e) {
-                log.info("can not find the user:" + guestuser);
-            }
-        }
-
-        render view: 'auth', model: [postUrl: request.contextPath + SpringSecurityUtils.securityConfig.apf.filterProcessesUrl]
+	redirect(url: "https://neuroshare.michaeljfox.org/")
     }
 
     /**
