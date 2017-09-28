@@ -1,5 +1,6 @@
 package com.recomdata.transmart.data.export
 
+import com.google.common.base.CharMatcher
 import com.recomdata.snp.SnpData
 import com.recomdata.transmart.data.export.exception.DataNotFoundException
 import groovy.json.JsonSlurper
